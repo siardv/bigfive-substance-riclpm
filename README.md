@@ -1,0 +1,69 @@
+# bigfive-substance-riclpm
+
+Analysis code and reproducibility materials for a longitudinal study of Big
+Five personality traits (extraversion, openness, conscientiousness) and
+substance use, and the moderating role of socioeconomic status (SES).
+Random-intercept cross-lagged panel models (RI-CLPM) are fitted to five waves
+of the LISS panel (Longitudinal Internet studies for the Social Sciences,
+administered by Centerdata, Tilburg University).
+
+This repository intentionally contains no LISS microdata (redistribution is
+not permitted under the LISS data-access conditions) and no manuscript text
+(pending publication). Everything needed to rerun the analysis after
+obtaining the data from LISS is included.
+
+## Contents
+
+- `R/` : numbered pipeline modules (setup, income cleaning, SES, measures,
+  CFA and invariance, sample selection, assembly and reshaping, RI-CLPM
+  models, hypothesis tests, reporting, pipeline driver)
+- `run.R` : entry point; sources the modules and defines the pipeline
+  (no analysis runs on load)
+- `run_all.R`, `run_all.Rmd` : render the full analysis transcript
+- `run_all.md` : rendered transcript of a complete pipeline run, browsable at https://siardv.github.io/bigfive-substance-riclpm/
+- `full_record.R` : one-shot capture of the quantities reported in the
+  manuscript and supplement (reproduction check, SES classification
+  stability, attrition, confidence-interval bounds)
+- `examples/workflow.R` : interactive usage examples (not sourced by run.R)
+- `tables/` : canonical aggregated result tables (CSV)
+- `reports/background-variables-provenance.md` : provenance and handling of
+  the LISS background-variables input
+- `data-checksums.md5` : MD5 manifest of the exact input files used
+- `data/`, `data_init/`, `data_merged/` : data directories, tracked only as
+  placeholders; see the README in each
+
+## Data availability
+
+LISS data are available free of charge for academic research after signing
+the LISS data statement; see https://www.lissdata.nl. The exact input files
+used here, with MD5 hashes, are listed in `data-checksums.md5`. Module
+codebooks are distributed by LISS and are not mirrored in this repository.
+
+## Reproducing the analysis
+
+1. Obtain the LISS files listed in `data-checksums.md5` and place them in
+   `data/`, `data_init/`, and `data_merged/` as described in those
+   directories' README files.
+2. Verify file integrity against `data-checksums.md5`.
+3. From the project root, render the transcript:
+
+       Rscript run_all.R
+
+   This regenerates `run_all.md` and the tables in `tables/`.
+
+Developed under R 4.6.1. Packages used via `::` include haven, dplyr, purrr,
+tibble, lavaan, and tidyr (see the header of `run.R`); rendering additionally
+requires rmarkdown and knitr.
+
+## What is deliberately excluded
+
+Raw and person-level derived data (`data/`, `data_init/`, `data_merged/`,
+`*.sav`, `*.rds`), the manuscript and all drafts, superseded material, and
+one-off operational or manuscript-build scripts. See `.gitignore` for the
+full policy.
+
+## License and citation
+
+Code is released under the MIT License (see `LICENSE`). A citation for the
+accompanying manuscript will be added upon publication; `CITATION.cff`
+covers the code in the meantime.

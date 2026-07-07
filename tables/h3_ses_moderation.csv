@@ -1,0 +1,4 @@
+"Trait","H3 χ² diff (cross-lagged)","H3 p","H3 Overall χ²","Overall p","Group Ns","Imbalance","Reliable"
+"EXTR",0.03,"0.983",7.91,"0.0951","low = 2336; high = 2043","1.1:1","Yes"
+"OPEN",0.11,"0.945",7.06,"0.132","low = 2336; high = 2043","1.1:1","Yes"
+"CONS",1.54,"0.464",7.26,"0.123","low = 2336; high = 2043","1.1:1","Yes"

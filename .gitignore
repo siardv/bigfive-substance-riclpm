@@ -1,0 +1,88 @@
+# system and session files
+.DS_Store
+Thumbs.db
+.Rhistory
+.Rapp.history
+.RData
+.Ruserdata
+.Renviron
+.Rproj.user/
+
+# editor and temporary files
+*.bak
+*.tmp
+*.temp
+*.orig
+*.rej
+*.swp
+*.swo
+*~
+
+# restricted and derived data
+*.sav
+*.zsav
+*.por
+*.dta
+*.rds
+*.rda
+*.RData
+*.RDS
+*.Rds
+
+data/*
+!data/README.md
+
+data_init/*
+!data_init/README.md
+
+data_merged/*
+!data_merged/README.md
+
+# manuscripts, notes, drafts, reviews, and archives
+manuscript/
+manuscripts/
+manuscript_v*/
+notes/
+drafts/
+reviews/
+reports/
+archive/
+archives/
+_archive*/
+
+*.doc
+*.docx
+*.odt
+*.tex
+*.pdf
+*.rtf
+
+# logs and verification output
+*.log
+verify_*.txt
+verify_*.out
+
+# one-off operational and rendering scripts
+tools/
+*.sh
+*.bash
+*.zsh
+*.py
+recreate_*.R
+tikz_*.R
+verify_*.R
+
+# generated render artefacts
+*_cache/
+*_files/
+.quarto/
+_site/
+site/
+
+# packaged and compressed files
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar

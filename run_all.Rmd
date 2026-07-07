@@ -1,0 +1,237 @@
+---
+title: "RI-CLPM analysis transcript: Big Five, substance use, and SES"
+always_allow_html: true
+output:
+  github_document:
+    toc: true
+    html_preview: false
+---
+
+```{r setup, include=FALSE}
+# echo each step's code, print messages and warnings, and keep going on errors so
+# the transcript stays complete. send any figures where github renders them.
+knitr::opts_chunk$set(
+  echo = TRUE, message = TRUE, warning = TRUE, error = TRUE,
+  comment = "#>", fig.path = "run_all_files/figure-gfm/"
+)
+library(magrittr) # %>%, needed by the sourced module functions
+
+# load the pipeline through run.R, the single entry point: it sources the R/
+# modules in numeric order and defines `config`. run.R's startup message is
+# suppressed because this chunk is include=FALSE.
+source("run.R")
+
+# weasel drives the subset-selection showcase (section 2). attach it when the
+# package is installed; otherwise that step is skipped and a fixed window is used.
+use_weasel <- requireNamespace("weasel", quietly = TRUE)
+if (use_weasel) suppressMessages(library("weasel", character.only = TRUE))
+
+waves <- 5L # default window length; weasel overrides it when it runs
+```
+
+
+## 1 Data
+
+```{r data}
+# read the frozen per-module merges (data_merged/{cp,ch,ci}_merged.sav) plus the
+# background variables (data_init/b.sav). no credentials or 2fa: the merges are
+# read straight from disk.
+liss <- load_liss_data(config)
+
+# structural check: rows x cols of each module, a regression guard after any
+# change to the data layer.
+sapply(liss[c("p", "h", "i", "b")], function(d) {
+  if (is.null(d)) c(rows = NA, cols = NA) else c(rows = nrow(d), cols = ncol(d))
+})
+```
+
+```{r provenance}
+# data provenance: size and last-modified time of the inputs this transcript
+# reads, oldest first. modification time is portable across volumes.
+inputs <- c(
+  file.path(config$merged_dir, paste0(config$liss_modules, "_merged.sav")),
+  config$avars_file
+)
+info <- file.info(inputs)
+prov <- data.frame(
+  file     = basename(inputs),
+  contains = c("personality", "health", "income", "background"),
+  size_mb  = round(info$size / 1024^2, 1),
+  modified = format(info$mtime, "%Y-%m-%d"),
+  age_days = round(as.numeric(difftime(Sys.time(), info$mtime, units = "days")))
+)
+prov[order(info$mtime), ]
+```
+
+## 2 Data Preparation
+
+```{r clean-income}
+# clean household income, then summarise what was flagged or capped.
+liss$i_clean <- clean_income(liss$i, liss$b, verbose = FALSE)
+print_outlier_summary(summarize_outliers(liss$i_clean))
+```
+
+```{r ses}
+# construct SES as a binary median split (~50/50), the canonical coding for the
+# multi-group moderation test in section 5.
+liss$i_clean <- construct_ses(liss$i_clean, method = "binary")
+table(liss$i_clean$ses, useNA = "ifany")
+```
+
+```{r measures}
+# quick look at the constructed measures before assembly: Big Five scores from
+# the personality module and substance use as a count (0 to 6).
+head(compute_b5_scores(liss$p))
+table(process_substance_use(liss$h, method = "sum")$substance_use, useNA = "ifany")
+```
+
+```{r assemble}
+# assemble the long analysis frame, pairing personality with substance use per
+# wave and carrying SES through. "sum" gives the count coding used throughout.
+analysis_data <- prepare_analysis_data(liss, substance_method = "sum")
+str(analysis_data, max.level = 1, list.len = 12)
+```
+
+```{r weasel, eval=use_weasel}
+# principled, reproducible subset selection: restrict to waves where extraversion
+# is observed, re-index onto a dense per-person axis, score scenarios, and emit a
+# paste-ready methods paragraph. the chosen window length then drives the reshape.
+sel <- select_weasel_subset(
+  analysis_data,
+  measured = "extr",
+  span     = "core",
+  core_len = waves
+)
+analysis_data <- sel$data
+waves <- sel$L
+cat(sel$justification, "\n")
+```
+
+```{r weasel-skip, eval=!use_weasel, echo=FALSE, results='asis'}
+cat(sprintf(
+  "> weasel is not installed, so subset selection is skipped; the analysis proceeds on the full assembled data with a fixed %d-wave window.\n",
+  waves
+))
+```
+
+```{r reshape}
+# reshape long to wide for the RI-CLPM. weasel's window length sets the wave count.
+data_wide <- reshape_for_riclpm(analysis_data, max_waves = waves)
+cat("persons:", nrow(data_wide), "| waves:", waves, "\n")
+table(data_wide$ses, useNA = "ifany")
+```
+
+## 3 Diagnostics
+
+```{r variance}
+# substance-use variance per wave. near-zero variance breaks multi-group fits;
+# the count coding keeps variance well away from zero.
+sub_cols <- grep("^substance_use_", names(data_wide), value = TRUE)
+sapply(sub_cols, function(v) stats::var(data_wide[[v]], na.rm = TRUE))
+```
+
+```{r coverage}
+# pairwise coverage of the analysis variables under FIML.
+coverage <- check_coverage(
+  data_wide,
+  vars      = c("extr", "open", "cons", "substance_use"),
+  threshold = 0.10
+)
+print_coverage_summary(coverage)
+```
+
+```{r group-variance}
+# variance of substance use within each SES group; zero variance in a group would
+# make the multi-group model fail.
+check_variance_by_group(data_wide, group_var = "ses", vars = "substance_use")
+```
+
+## 4 Measurement Model
+
+The RI-CLPM fixes every factor loading to one, so metric (equal-loading) invariance holds by
+construction across waves and across SES groups. That is enough to compare the structural
+parameters: the autoregressive and cross-lagged paths and the between-person random-intercept
+variances. The confirmatory factor analyses below are a separate check on whether each Big Five
+dimension is measured adequately by its items. Weak CFA fit signals possible attenuation of the
+cross-lagged effects (estimates biased toward zero), not a violation of the RI-CLPM's loading
+constraints.
+
+```{r cfa}
+cfa_results <- purrr::map(c("extr", "open", "cons"), ~ fit_b5_cfa(liss$p, .x))
+cfa_fit_table <- extract_cfa_fit(cfa_results)
+knitr::kable(cfa_fit_table, digits = 3, caption = "Big Five CFA fit by dimension")
+```
+
+Beyond the by-construction loading equality of the structural model, the
+item-level hierarchy below tests longitudinal measurement invariance directly
+on the selected occasions: configural, metric, scalar, and strict models per
+trait, with fixed-factor identification and same-item residual covariances
+(module 05b). The delta CFI column is the key comparison for the manuscript's
+comparability claim.
+
+```{r invariance, eval=use_weasel}
+# item-level longitudinal invariance on the weasel-selected occasions; prints a
+# fit table (with delta cfi) and scaled lrts per trait. `sel` is the weasel
+# selection object from section 2 and carries the wave_map this needs.
+invariance <- run_longitudinal_invariance(
+  liss$p, sel,
+  dims = c("extr", "open", "cons"), estimator = "MLR"
+)
+```
+
+## 5 Hypothesis Tests
+
+H1: personality predicts later substance use.
+H2: substance use predicts later personality.
+H3: socioeconomic status moderates these cross-lagged paths.
+
+```{r hypotheses}
+hypothesis_results <- run_hypothesis_tests(data_wide, waves = waves, estimator = "MLR")
+print_hypothesis_summary(hypothesis_results)
+```
+
+## 6 Results and Interpretation
+
+```{r results}
+# assemble the results object the reporting functions expect, then build the
+# publication tables and write them to tables/.
+results <- list(
+  hypothesis_results = hypothesis_results,
+  cfa_fit = cfa_fit_table,
+  settings = list(
+    waves = waves, ses_method = "binary", substance_method = "sum",
+    estimator = "MLR", use_weasel = use_weasel
+  )
+)
+pub_table <- create_publication_table(results)
+
+dir.create("tables", showWarnings = FALSE)
+utils::write.csv(pub_table$h1_h2, "tables/h1_h2_cross_lagged.csv", row.names = FALSE)
+utils::write.csv(pub_table$h3, "tables/h3_ses_moderation.csv", row.names = FALSE)
+utils::write.csv(cfa_fit_table, "tables/cfa_fit.csv", row.names = FALSE)
+utils::write.csv(hypothesis_results$summary, "tables/cross_lagged_summary.csv", row.names = FALSE)
+
+knitr::kable(
+  pub_table$h1_h2,
+  caption = "H1/H2 within-person cross-lagged effects and random-intercept shares"
+)
+knitr::kable(
+  pub_table$h3,
+  caption = "H3 SES moderation: targeted cross-lagged multi-group test"
+)
+list.files("tables")
+```
+
+```{r interpret}
+# narrative interpretation, including how to read null cross-lagged effects in
+# the presence of strong random-intercept (between-person) stability.
+interpret_riclpm_results(hypothesis_results, cfa_fit_table, coverage)
+```
+
+## Appendix: sensitivity analysis
+
+Alternative specifications (3-level SES, binary substance use).
+
+```{r sensitivity}
+(sensitivity <- run_sensitivity_analysis(config, waves = 5))
+```

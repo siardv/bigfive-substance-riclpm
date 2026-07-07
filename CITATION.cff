@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite it as below."
+type: software
+title: "bigfive-substance-riclpm: RI-CLPM analysis of Big Five traits, substance use, and SES in the LISS panel"
+authors:
+  - family-names: "Bosch"
+    name-particle: "van den"
+    given-names: "Siard"
+    email: "siardvandenbosch@me.com"
+license: MIT
+version: "1.0.0"
+date-released: "2026-07-07"
+repository-code: "https://github.com/siardv/bigfive-substance-riclpm"
+url: "https://siardv.github.io/bigfive-substance-riclpm/"
